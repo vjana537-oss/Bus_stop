@@ -740,8 +740,9 @@
 
     </div>
   </div>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+ <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-check-compat.js"></script>
   <script>
     // Variable creation at the start of the script
     const session = JSON.parse(localStorage.getItem('busStopSess_v1'));
@@ -759,6 +760,8 @@
 
     // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
+    const appCheck = firebase.appCheck();
+    appCheck.activate('UNNODA_SITE_KEY_INGA_PODU', true);
     const auth = firebase.auth();
     const provider = new firebase.auth.GoogleAuthProvider();
     

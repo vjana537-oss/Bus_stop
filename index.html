@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <head>
   <meta name="google-site-verification" content="vggdMGWvaOKOiMd2OjRIz876ctD6DXOsVETJaUISdmo" />
   <meta charset="UTF-8">
@@ -804,7 +805,24 @@
     </div>
   </header>
 
-  <main>
+  <div class="page" id="page-details">
+  <button onclick="showPage('view', document.querySelectorAll('.tab')[0])" style="margin-bottom:20px; background:var(--card2); border:1px solid var(--border); padding:10px 20px; border-radius:10px; color:var(--text); cursor:pointer; font-weight:bold;">🔙 Back to List</button>
+  <div id="detail-card-content"></div>
+</div>
+
+<div id="mapModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:2000; flex-direction:column;">
+  <div style="padding: 20px; background: var(--card); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+    <h3 style="font-family: 'Syne', sans-serif;">📍 Pin Bus Stop Location</h3>
+    <button onclick="closeMapPicker()" style="background: none; border: none; color: var(--red); font-size: 24px; cursor: pointer;">✕</button>
+  </div>
+
+  <div id="mapPicker" style="flex: 1; width: 100%;"></div>
+
+  <div style="padding: 20px; background: var(--card); border-top: 1px solid var(--border); display: flex; gap: 15px;">
+    <button onclick="closeMapPicker()" style="flex: 1; padding: 16px; background: var(--card2); color: var(--text); border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">Cancel</button>
+    <button onclick="saveMapLocation()" style="flex: 2; padding: 16px; background: var(--green); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px;">✅ SAVE THIS LOCATION</button>
+  </div>
+</div>  <main>
 
     <!-- VIEW -->
     <div class="page active" id="page-view">
@@ -829,14 +847,25 @@
       <div class="field"><label>Bus Name*</label><input type="text" id="inp-location" placeholder="e.g. 5A, 15B"></div>
       <div class="field"><label>Crowd Type*</label><input type="text" id="inp-route"
           placeholder="e.g. High, Low, Medium"></div>
-      <div class="field"><label>Bus Timings* (comma separated)</label><textarea id="inp-timings"
-          placeholder="e.g. 6:00 AM, 8:30 AM, 12:00 PM"></textarea></div>
-      <button class="submit-btn" onclick="addStop()">✅ Save Bus Stop</button>
-      <div class="toast" id="successToast">🎉 🎉 Bus Stop added! Check the View tab!</div>
-    </div>
+      <div class="field">
+        <label>Bus Timings* (comma separated)</label>
+        <textarea id="inp-timings" placeholder="e.g. 6:00 AM, 8:30 AM, 12:00 PM"></textarea>
+      </div>
 
-    <!-- OWNER -->
-    <div class="page" id="page-owner">
+      <div class="field" style="margin-top: 10px; text-align: center;">
+        <label>Location Details</label>
+        <input type="hidden" id="inp-gps"> 
+        <button type="button" onclick="openMapPicker()" style="width: 100%; padding: 15px; background: var(--card2); border: 2.5px dashed var(--accent); color: var(--accent); border-radius: 12px; cursor: pointer; font-weight: 800; font-size: 16px;">
+          🗺️ ADD MAP LOCATION
+        </button>
+        <div id="gps-status" style="font-size: 13px; font-weight: bold; color: var(--green); margin-top: 10px; display: none;">✅ Location Pinned Successfully!</div>
+      </div>
+
+      <button class="submit-btn" onclick="addStop()" style="margin-top: 20px;">✅ Save Bus Stop</button>
+
+      <div class="toast" id="successToast">🎉 🎉 Bus Stop added! Check the View tab!</div>
+      
+    </div> <div class="page" id="page-owner">
       <div class="owner-panel">
         <h3>📊 Owner Dashboard</h3>
         <div class="stats-row">
@@ -844,8 +873,6 @@
             <div class="stat-num" id="stat-total">0</div>
             <div class="stat-label">Total Stops</div>
           </div>
-          
-          
         </div>
         <button class="danger-btn" onclick="clearAll()">🗑️ Delete All Data</button>
       </div>
@@ -1054,9 +1081,54 @@
         document.querySelector('#page-add .submit-btn').innerHTML = "🔄 Update Bus Stop";
     };
 
+    window.viewDetails = function(id) {
+  const s = allStops.find(x => x.id === id);
+  if(!s) return;
+
+  // GPS irundha Google Map iframe (Photo madhiri) kaatum, illana kaatadhu
+  const mapSection = s.gps ? `
+    <div style="margin-top: 20px;">
+      <h4 style="margin-bottom: 10px; color: var(--muted);">🗺️ Pinned Location</h4>
+      <iframe width="100%" height="250" style="border:0; border-radius:14px; pointer-events:none;" loading="lazy" allowfullscreen 
+        src="https://maps.google.com/maps?q=${s.gps}&hl=en&z=15&output=embed"></iframe>
+      <a href="https://www.google.com/maps?q=${s.gps}" target="_blank" style="display:block; text-align:center; margin-top:10px; padding:12px; background:var(--accent); color:#000; border-radius:10px; font-weight:bold; text-decoration:none;">
+        📍 Open in Google Maps
+      </a>
+    </div>
+  ` : '<div style="margin-top:20px; padding:15px; background:var(--card2); border-radius:10px; text-align:center; color:var(--muted);">No GPS location added for this stop.</div>';
+
+  document.getElementById('detail-card-content').innerHTML = `
+    <div class="stop-card" style="animation: none;">
+      <div class="card-top">
+        <div class="stop-name" style="font-size: 24px;">🚌 ${s.name}</div>
+        <div class="route-badge">${s.route || 'Route'}</div>
+      </div>
+      <div style="font-size: 16px; margin-bottom: 10px;">📍 Bus Name: <b style="color:var(--text);">${s.location}</b></div>
+      <div style="font-size: 16px; margin-bottom: 20px;">🏘️ Village: <b style="color:var(--text);">${s.village}</b></div>
+      
+      <div style="border-top: 1px dashed var(--border); padding-top: 15px;">
+        <h4 style="margin-bottom: 10px; color: var(--muted);">⏰ All Timings</h4>
+        <div class="timings-wrap">
+          ${(s.timings || []).map(t => `<div class="time-chip" style="font-size:15px; padding:8px 15px;"><div class="dot"></div>${t}</div>`).join('')}
+        </div>
+      </div>
+
+      ${mapSection}
+
+      <div style="margin-top:20px; font-size:12px; color:var(--muted); text-align:right;">
+        Added by ${s.addedBy} on ${s.date}
+      </div>
+    </div>
+  `;
+
+  // Page maathurom
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-details').classList.add('active');
+};
+
     window.addStop = async function () {
         const session = JSON.parse(localStorage.getItem('busStopSess_v1'));
-        
+        const gps = document.getElementById('inp-gps').value;
         if (!session) {
             alert("❗ Cannot save data without logging in!");
             window.location.href = "login.html";
@@ -1090,7 +1162,15 @@
 
         try {
             const t = document.getElementById('successToast');
-            
+              // Ulla idha maathu:
+              const stopData = {
+                  addedBy: currentUsername,
+                  name, village, location, route,
+                  timings: newTimings,
+                  gps: document.getElementById('inp-gps').value, // Pudhusa idhu add aagudhu
+                  date: new Date().toLocaleDateString('en-IN'),
+                  timestamp: new Date().getTime() 
+};
             if (currentEditId) {
                 const stopData = {
                     name, village, location, route,
@@ -1228,10 +1308,11 @@
     };
 
     // Render Stops Function
+    // Render Stops Function
     window.renderStops = function() {
         const stopsList = document.getElementById('stopsList');
         const searchInput = document.getElementById('searchInput').value.toLowerCase();
-        
+
         document.getElementById('totalCount').textContent = allStops.length;
 
         const filteredStops = allStops.filter(s => 
@@ -1246,7 +1327,7 @@
         }
 
         stopsList.innerHTML = filteredStops.map(s => 
-            `<div class="stop-card">
+            `<div class="stop-card" onclick="viewDetails('${s.id}')" style="cursor:pointer;" title="Click to view details">
                 <div class="card-top">
                     <div class="stop-name">🚌 ${s.name}</div>
                     <div class="route-badge">${s.route || 'Route'}</div>
@@ -1263,13 +1344,54 @@
             </div>`
         ).join('');
     };
-
     const q = query(collection(db, "bus_updates"), orderBy("timestamp", "desc"));
     onSnapshot(q, (snapshot) => {
       allStops = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       renderStops();
       renderOwner();
     });
+
+    let pickerMap = null;
+let pickerMarker = null;
+let tempLatLng = null;
+
+window.openMapPicker = function() {
+  document.getElementById('mapModal').style.display = 'flex';
+  
+  if(!pickerMap) {
+    // Default-a Tamil Nadu location kaatum
+    pickerMap = L.map('mapPicker').setView([10.7905, 78.7047], 7); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(pickerMap);
+    
+    pickerMarker = L.marker([10.7905, 78.7047], {draggable: true}).addTo(pickerMap);
+    tempLatLng = pickerMarker.getLatLng();
+
+    // Map-la enga thottalum marker anga pogum
+    pickerMap.on('click', function(e) {
+      pickerMarker.setLatLng(e.latlng);
+      tempLatLng = e.latlng;
+    });
+
+    pickerMarker.on('dragend', function(e) {
+      tempLatLng = pickerMarker.getLatLng();
+    });
+  }
+  // Modal open aanadhum map load aaga oru chinna delay
+  setTimeout(() => { pickerMap.invalidateSize(); }, 200);
+};
+
+window.closeMapPicker = function() {
+  document.getElementById('mapModal').style.display = 'none';
+};
+
+window.saveMapLocation = function() {
+  if(tempLatLng) {
+    document.getElementById('inp-gps').value = `${tempLatLng.lat}, ${tempLatLng.lng}`;
+    // User-ku location pin aayiduchu nu kaata
+    document.getElementById('gps-status').style.display = 'block';
+  }
+  closeMapPicker();
+};
   </script>
 </body>
 
